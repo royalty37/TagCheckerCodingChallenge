@@ -1,0 +1,5 @@
+Correctly tagged paragraph
+Correctly tagged paragraph
+Expected </C> found </B>
+Expected </C> found </B>
+Expected </B> found #
