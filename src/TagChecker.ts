@@ -4,38 +4,43 @@ interface Tag {
 }
 
 class TagChecker {
-  private stack: Tag[] = [];
+  private readonly openingTagPattern: RegExp = /^<([A-Z])>$/;
+  private readonly closingTagPattern: RegExp = /^<\/([A-Z])>$/;
   
   public checkParagraph(paragraph: string): string {
-    this.stack = [];
+    const stack: Tag[] = [];
     const tokens = this.tokenize(paragraph);
     
     for (const token of tokens) {
       if (this.isOpeningTag(token)) {
         const tagName = this.extractTagName(token);
-        this.stack.push({ name: tagName, position: 0 });
-      } else if (this.isClosingTag(token)) {
+        stack.push({ name: tagName, position: 0 });
+        continue;
+      } 
+        
+      if (this.isClosingTag(token)) {
         const tagName = this.extractTagName(token);
         
-        if (this.stack.length === 0) {
+        if (stack.length === 0) {
           // No opening tag to match
           return `Expected # found </${tagName}>`;
         }
         
-        const lastTag = this.stack[this.stack.length - 1];
+        const lastTag = stack[stack.length - 1];
         if (lastTag.name === tagName) {
           // Perfect match
-          this.stack.pop();
-        } else {
-          // Wrong closing tag
-          return `Expected </${lastTag.name}> found </${tagName}>`;
+          stack.pop();
+          continue;
         }
+      
+        // Wrong closing tag
+        return `Expected </${lastTag.name}> found </${tagName}>`;
       }
     }
     
     // Check for unmatched opening tags
-    if (this.stack.length > 0) {
-      const unmatchedTag = this.stack[this.stack.length - 1];
+    if (stack.length > 0) {
+      const unmatchedTag = stack[stack.length - 1];
       return `Expected </${unmatchedTag.name}> found #`;
     }
     
@@ -43,50 +48,28 @@ class TagChecker {
   }
   
   private tokenize(text: string): string[] {
-    const tokens: string[] = [];
-    let i = 0;
-    
-    while (i < text.length) {
-      if (text[i] === '<') {
-        const start = i;
-        i++;
-        
-        // Find the closing >
-        while (i < text.length && text[i] !== '>') {
-          i++;
-        }
-        
-        if (i < text.length) {
-          i++; // Include the closing >
-          tokens.push(text.substring(start, i));
-        }
-      } else {
-        i++;
-      }
-    }
-    
-    return tokens;
+    // Match all tags: < followed by any content until >
+    const tagRegex = /<[^>]*>/g;
+    return text.match(tagRegex) || [];
   }
   
   private isOpeningTag(token: string): boolean {
     // Must be <X> where X is exactly one uppercase letter
-    const match = token.match(/^<([A-Z])>$/);
-    return match !== null;
+    return this.openingTagPattern.test(token);
   }
   
   private isClosingTag(token: string): boolean {
     // Must be </X> where X is exactly one uppercase letter
-    const match = token.match(/^<\/([A-Z])>$/);
-    return match !== null;
+    return this.closingTagPattern.test(token);
   }
   
   private extractTagName(token: string): string {
-    const openMatch = token.match(/^<([A-Z])>$/);
+    const openMatch = this.openingTagPattern.exec(token);
     if (openMatch) {
       return openMatch[1];
     }
-    
-    const closeMatch = token.match(/^<\/([A-Z])>$/);
+
+    const closeMatch = this.closingTagPattern.exec(token);
     if (closeMatch) {
       return closeMatch[1];
     }
